@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Budget Survival</title>
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --card: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --good: #16a34a;
+      --warn: #dc2626;
+      --border: #d1d5db;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Arial, sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 520px;
+      background: var(--card);
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 1.7rem;
+      text-align: center;
+    }
+
+    .subtitle {
+      margin: 0 0 18px;
+      color: var(--muted);
+      text-align: center;
+      font-size: 0.95rem;
+    }
+
+    .form-grid {
+      display: grid;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      font-weight: 700;
+      margin-bottom: 6px;
+      font-size: 0.95rem;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 1rem;
+    }
+
+    button {
+      width: 100%;
+      border: 0;
+      border-radius: 8px;
+      background: #111827;
+      color: #fff;
+      font-size: 1rem;
+      padding: 12px;
+      cursor: pointer;
+      font-weight: 700;
+    }
+
+    .results {
+      border-top: 1px solid var(--border);
+      padding-top: 16px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .metric {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      font-size: 1rem;
+    }
+
+    .metric span:first-child {
+      color: var(--muted);
+    }
+
+    .daily-budget {
+      margin-top: 8px;
+      padding: 14px;
+      border-radius: 10px;
+      background: #f9fafb;
+      text-align: center;
+    }
+
+    .daily-budget .value {
+      display: block;
+      font-size: clamp(2rem, 8vw, 2.8rem);
+      font-weight: 800;
+      margin-bottom: 6px;
+    }
+
+    .status {
+      font-weight: 700;
+      margin: 0;
+    }
+
+    .status.good {
+      color: var(--good);
+    }
+
+    .status.warning {
+      color: var(--warn);
+    }
+
+    @media (min-width: 640px) {
+      .app {
+        padding: 24px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <h1>Budget Survival</h1>
+    <p class="subtitle">Plan your spending until your next paycheck.</p>
+
+    <form id="budgetForm" class="form-grid" novalidate>
+      <div>
+        <label for="income">Income ($)</label>
+        <input id="income" name="income" type="number" inputmode="decimal" min="0" step="0.01" value="0" required />
+      </div>
+
+      <div>
+        <label for="expenses">Total Expenses ($)</label>
+        <input id="expenses" name="expenses" type="number" inputmode="decimal" min="0" step="0.01" value="0" required />
+      </div>
+
+      <div>
+        <label for="days">Days Until Next Paycheck</label>
+        <input id="days" name="days" type="number" inputmode="numeric" min="1" step="1" value="14" required />
+      </div>
+
+      <button type="submit">Calculate Budget</button>
+    </form>
+
+    <section class="results" aria-live="polite">
+      <div class="metric">
+        <span>Money left</span>
+        <strong id="moneyLeft">$0.00</strong>
+      </div>
+
+      <div class="metric">
+        <span>Days left</span>
+        <strong id="daysLeft">14</strong>
+      </div>
+
+      <div class="daily-budget">
+        <small>Daily budget</small>
+        <span id="dailyBudget" class="value">$0.00</span>
+        <p id="statusMessage" class="status warning">You may run out of money early</p>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    (function () {
+      const form = document.getElementById('budgetForm');
+      const incomeInput = document.getElementById('income');
+      const expensesInput = document.getElementById('expenses');
+      const daysInput = document.getElementById('days');
+
+      const moneyLeftEl = document.getElementById('moneyLeft');
+      const daysLeftEl = document.getElementById('daysLeft');
+      const dailyBudgetEl = document.getElementById('dailyBudget');
+      const statusMessageEl = document.getElementById('statusMessage');
+
+      const formatCurrency = (value) =>
+        new Intl.NumberFormat('en-US', {
+          style: 'currency',
+          currency: 'USD',
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2
+        }).format(value);
+
+      function getStatusMessage(dailyBudget) {
+        if (dailyBudget < 10) {
+          return {
+            text: 'You may run out of money early',
+            className: 'warning'
+          };
+        }
+
+        if (dailyBudget <= 30) {
+          return {
+            text: 'Be careful with spending',
+            className: 'warning'
+          };
+        }
+
+        return {
+          text: "You're in a good position",
+          className: 'good'
+        };
+      }
+
+      function parseNumber(input, fallback = 0) {
+        const parsed = Number(input.value);
+        return Number.isFinite(parsed) ? parsed : fallback;
+      }
+
+      function updateBudget() {
+        const income = Math.max(0, parseNumber(incomeInput));
+        const expenses = Math.max(0, parseNumber(expensesInput));
+        const days = Math.max(1, Math.floor(parseNumber(daysInput, 1)));
+
+        const moneyLeft = income - expenses;
+        const dailyBudget = moneyLeft / days;
+
+        moneyLeftEl.textContent = formatCurrency(moneyLeft);
+        daysLeftEl.textContent = String(days);
+        dailyBudgetEl.textContent = formatCurrency(dailyBudget);
+
+        const status = getStatusMessage(dailyBudget);
+        statusMessageEl.textContent = status.text;
+        statusMessageEl.classList.remove('good', 'warning');
+        statusMessageEl.classList.add(status.className);
+      }
+
+      form.addEventListener('submit', function (event) {
+        event.preventDefault();
+        updateBudget();
+      });
+
+      [incomeInput, expensesInput, daysInput].forEach((input) => {
+        input.addEventListener('input', updateBudget);
+      });
+
+      updateBudget();
+    })();
+  </script>
+</body>
+</html>
